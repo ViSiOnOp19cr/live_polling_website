@@ -15,6 +15,12 @@ export function setupSocketHandlers(io: Server) {
         socket.on('post-question', (data)=>{
             pollManager.postQuestion(socket,data);
         });
+        socket.on('poll-submit',(data)=>{
+            pollManager.pollResponse(socket,data);
+        });
+        socket.on('end-poll',(data)=>{
+            pollManager.endPoll(socket,data);
+        })
         socket.on('leave-room', (data) => {
             pollManager.leaveRoom(socket, data);
         });

@@ -317,6 +317,19 @@ export class Poll {
                 });
                 return;
             }
+            const existingResponse = await prisma.pollResponse.findFirst({
+                where:{
+                    pollId:pollid,
+                    userId:userId
+                }
+            });
+            if (existingResponse) {
+                socket.emit('poll-response', {
+                    success: false,
+                    error: 'You have already submitted a response'
+                });
+                return;
+            }
             const response = await prisma.pollResponse.create({
                 data: {
                     pollId: pollid,
@@ -340,6 +353,111 @@ export class Poll {
                 error: 'Failed to post question'
             });
         }
+
+    }
+    async endPoll(socket:Socket, data:{roomCode:number,pollId:string,teacherId:string}){
+        const {roomCode,pollId, teacherId} = data;
+        try{
+            const room = await prisma.room.findUnique({
+                where:{
+                    roomCode,
+                },
+                select:{
+                    id:true,
+                    isActive:true,
+                    teacherId:true,
+                    roomCode:true
+                }
+            });
+            if(!room){
+                socket.emit('poll-ended',{
+                    success:false,
+                    error:'room not found'
+                });
+                return;
+            }
+            if(!room?.isActive){
+                socket.emit('poll-ended',{
+                    success:false,
+                    error:'room is not active'
+                })
+                return;
+            }
+            if(room.teacherId !== teacherId){
+                socket.emit('poll-ended',{
+                    success:false,
+                    error:'you are not the teacher of this room'
+                })
+                return;
+            }
+            if(room.roomCode !== roomCode){
+                socket.emit('poll-ended',{
+                    success:false,
+                    error:'invalid room code'
+                })
+                return;
+            }
+            const poll = await prisma.poll.findUnique({
+                where:{
+                    id:pollId,
+                    roomId:room.id
+                },
+                select:{
+                    id:true,
+                    question:true,
+                    options:true,
+                    correctOption:true,
+                    isActive:true
+
+                }
+            });
+            if(!poll){
+                socket.emit('poll-ended',{
+                    success:false,
+                    error:'poll not found'
+                })
+                return;
+            }
+            if(!poll?.isActive){
+                socket.emit('poll-ended',{
+                    success:false,
+                    error:'poll is not active'
+                })
+                return;
+            }
+            const responses = await prisma.pollResponse.findMany({
+                where:{
+                    pollId:pollId
+                },
+                select:{
+                    id:true,
+                    userId:true,
+                    option:true
+                }
+            })
+            if(responses.length === 0){
+                socket.emit('poll-ended',{
+                    success:false,
+                    error:'no responses found'
+                })
+                return;
+            }
+            const correctOption = poll.correctOption;
+            const correctResponses = responses.filter(response => response.option === correctOption);
+            const incorrectResponses = responses.filter(response => response.option !== correctOption);
+            socket.emit('poll-ended',{
+                success:true,
+                poll:poll,
+                correctResponses:correctResponses,
+                incorrectResponses:incorrectResponses
+            });
+        }catch(error){
+            console.error('Error ending poll:', error);
+            socket.emit('poll-ended',{
+                success:false,
+                error:'Failed to end poll'
+            })
+        }   
 
     }
     async leaveRoom(socket: Socket, data: { roomCode: number; userId: string }) {
