@@ -458,7 +458,6 @@ export class Poll {
                 error:'Failed to end poll'
             })
         }   
-
     }
     async leaveRoom(socket: Socket, data: { roomCode: number; userId: string }) {
         try {
