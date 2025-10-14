@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken'
 import prisma from '../db.ts'
 import { jwt_scret } from '../config.ts'
+import type { extendedRequest } from '../types.ts'
  
 type user = {
     id:string | null,
@@ -67,7 +68,7 @@ export const login = async(req:Request, res:Response)=>{
         return res.status(400).json({error: 'Invalid credentials'});
     }
     const token = jwt.sign({
-        id:user.id,
+        id:user.id!,
     }, jwt_scret);
 
     if(!token){
@@ -81,5 +82,13 @@ export const login = async(req:Request, res:Response)=>{
             role:user.role
         }
     })
-
+}
+export const me = async(req:extendedRequest, res:Response)=>{
+    return res.status(200).json({
+        user:{
+            id:req.userId,
+            username:req.user?.username,
+            role:req.user?.role
+        }
+    });
 }
