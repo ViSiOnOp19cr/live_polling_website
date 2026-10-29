@@ -14,6 +14,7 @@ export function setupSocketHandlers(io: Server) {
                     success:false,
                     error:'Access denied only teacher can create room'
                 })
+                return;
             }
             pollManager.createRoom(socket, data);
         });
@@ -26,6 +27,7 @@ export function setupSocketHandlers(io: Server) {
                     success:false,
                     error:'Access denied only teacher can post question'
                 })
+                return;
             }
             pollManager.postQuestion(socket,data);
         });
@@ -38,6 +40,7 @@ export function setupSocketHandlers(io: Server) {
                     success:false,
                     error:'Access denied only teacher can end poll'
                 })
+                return;
             }
             pollManager.endPoll(socket,data);
         })

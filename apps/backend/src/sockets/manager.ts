@@ -8,14 +8,15 @@ export class Poll {
         this.io = io;
     }
 
-    async createRoom(socket: Socket, data: { title: string; teacherId: string; roomCode: number }) {
+    async createRoom(socket: Socket, data: { title: string; roomCode: number }) {
         try {
-            const { title, teacherId, roomCode } = data;
+            const { title, roomCode } = data;
+            const teacherId = socket.user?.id;
             if (!title || !teacherId || !roomCode) {
                 console.error('Missing required fields:', { title, teacherId, roomCode });
                 socket.emit('room-created', {
                     success: false,
-                    error: 'Missing required fields: title, teacherId, or roomCode'
+                    error: 'Missing required fields: title or roomCode'
                 });
                 return;
             }
@@ -60,9 +61,18 @@ export class Poll {
         }
     }
 
-    async joinRoom(socket: Socket, data: { roomCode: number; userId: string }) {
+    async joinRoom(socket: Socket, data: { roomCode: number }) {
         try {
-            const { roomCode, userId } = data;
+            const { roomCode } = data;
+            const userId = socket.user?.id;
+
+            if (!userId) {
+                socket.emit('room-joined', {
+                    success: false,
+                    error: 'User not authenticated'
+                });
+                return;
+            }
 
             const room = await prisma.room.findUnique({
                 where: { roomCode },
@@ -278,9 +288,18 @@ export class Poll {
         }
     }
 
-    async pollResponse(socket: Socket, data: { roomCode: number; pollid: string, userId: string; option: string }) {
-        const { roomCode, pollid, userId, option } = data;
+    async pollResponse(socket: Socket, data: { roomCode: number; pollid?: string; pollId?: string; option: string }) {
+        const { roomCode, option } = data;
+        const pollid = data.pollId ?? data.pollid;
+        const userId = socket.user?.id;
         try {
+            if (!pollid || !userId || !option) {
+                socket.emit('poll-response', {
+                    success: false,
+                    error: 'Missing required fields: pollId or option'
+                });
+                return;
+            }
             const room = await prisma.room.findUnique({
                 where: { roomCode },
                 select: { id: true, isActive: true, roomCode: true }
@@ -355,9 +374,17 @@ export class Poll {
         }
 
     }
-    async endPoll(socket:Socket, data:{roomCode:number,pollId:string,teacherId:string}){
-        const {roomCode,pollId, teacherId} = data;
+    async endPoll(socket:Socket, data:{roomCode:number,pollId:string}){
+        const {roomCode,pollId} = data;
+        const teacherId = socket.user?.id;
         try{
+            if (!teacherId) {
+                socket.emit('poll-ended',{
+                    success:false,
+                    error:'user not authenticated'
+                });
+                return;
+            }
             const room = await prisma.room.findUnique({
                 where:{
                     roomCode,
@@ -397,7 +424,7 @@ export class Poll {
                 })
                 return;
             }
-            const poll = await prisma.poll.findUnique({
+            const poll = await prisma.poll.findFirst({
                 where:{
                     id:pollId,
                     roomId:room.id
@@ -459,9 +486,14 @@ export class Poll {
             })
         }   
     }
-    async leaveRoom(socket: Socket, data: { roomCode: number; userId: string }) {
+    async leaveRoom(socket: Socket, data: { roomCode: number }) {
         try {
-            const { roomCode, userId } = data;
+            const { roomCode } = data;
+            const userId = socket.user?.id;
+
+            if (!userId) {
+                return;
+            }
 
             // Find the room
             const room = await prisma.room.findUnique({
